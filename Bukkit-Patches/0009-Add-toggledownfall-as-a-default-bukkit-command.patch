@@ -1,0 +1,102 @@
+From 7fae264135c51c1d48eb7ee697d7893420d7cbdd Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Wed, 8 Mar 2023 20:38:26 -0300
+Subject: [PATCH] Add /toggledownfall as a default bukkit command
+
+---
+ .../org/bukkit/command/SimpleCommandMap.java  |  1 +
+ .../bukkit/command/defaults/HelpCommand.java  |  1 +
+ .../defaults/ToggleDownfallCommand.java       | 44 +++++++++++++++++++
+ .../util/permissions/CommandPermissions.java  |  1 +
+ 4 files changed, 47 insertions(+)
+ create mode 100644 src/main/java/org/bukkit/command/defaults/ToggleDownfallCommand.java
+
+diff --git a/src/main/java/org/bukkit/command/SimpleCommandMap.java b/src/main/java/org/bukkit/command/SimpleCommandMap.java
+index b3b32908..b8293609 100644
+--- a/src/main/java/org/bukkit/command/SimpleCommandMap.java
++++ b/src/main/java/org/bukkit/command/SimpleCommandMap.java
+@@ -34,6 +34,7 @@ public class SimpleCommandMap implements CommandMap {
+         fallbackCommands.add(new TeleportCommand());
+         fallbackCommands.add(new GiveCommand());
+         fallbackCommands.add(new TimeCommand());
++        fallbackCommands.add(new ToggleDownfallCommand());
+         fallbackCommands.add(new SayCommand());
+         fallbackCommands.add(new WhitelistCommand());
+         fallbackCommands.add(new TellCommand());
+diff --git a/src/main/java/org/bukkit/command/defaults/HelpCommand.java b/src/main/java/org/bukkit/command/defaults/HelpCommand.java
+index 7fd39934..fe400f9f 100644
+--- a/src/main/java/org/bukkit/command/defaults/HelpCommand.java
++++ b/src/main/java/org/bukkit/command/defaults/HelpCommand.java
+@@ -32,6 +32,7 @@ public class HelpCommand extends VanillaCommand {
+         sender.sendMessage("list                      lists all currently connected players");
+         sender.sendMessage("say <message>             broadcasts a message to all players");
+         sender.sendMessage("time <add|set> <amount>   adds to or sets the world time (0-24000)");
++        sender.sendMessage("toggledownfall            toggles rain on/off");
+ 
+         return true;
+     }
+diff --git a/src/main/java/org/bukkit/command/defaults/ToggleDownfallCommand.java b/src/main/java/org/bukkit/command/defaults/ToggleDownfallCommand.java
+new file mode 100644
+index 00000000..cab27ec5
+--- /dev/null
++++ b/src/main/java/org/bukkit/command/defaults/ToggleDownfallCommand.java
+@@ -0,0 +1,44 @@
++package org.bukkit.command.defaults;
++
++import org.bukkit.Bukkit;
++import org.bukkit.ChatColor;
++import org.bukkit.World;
++import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
++import org.bukkit.entity.Player;
++
++public class ToggleDownfallCommand extends VanillaCommand {
++    public ToggleDownfallCommand() {
++        super("toggledownfall");
++        this.description = "Toggles rain on/off";
++        this.usageMessage = "/toggledownfall";
++        this.setPermission("bukkit.command.toggledownfall");
++    }
++
++    @Override
++    public boolean execute(CommandSender sender, String currentAlias, String[] args) {
++        if (!testPermission(sender)) return true;
++        if (args.length != 0)  {
++            sender.sendMessage(ChatColor.RED + "Incorrect usage. Correct usage:\n" + usageMessage);
++            return false;
++        }
++
++        World world;
++        if (sender instanceof Player) {
++            Player player = (Player) sender;
++            world = player.getWorld();
++        } else {
++            world = Bukkit.getWorlds().get(0);
++        }
++
++        world.setStorm(!world.hasStorm());
++        Command.broadcastCommandMessage(sender, "Toggling downfall");
++
++        return true;
++    }
++
++    @Override
++    public boolean matches(String input) {
++        return input.startsWith("toggledownfall");
++    }
++}
+diff --git a/src/main/java/org/bukkit/util/permissions/CommandPermissions.java b/src/main/java/org/bukkit/util/permissions/CommandPermissions.java
+index ab835553..33a6e20e 100644
+--- a/src/main/java/org/bukkit/util/permissions/CommandPermissions.java
++++ b/src/main/java/org/bukkit/util/permissions/CommandPermissions.java
+@@ -103,6 +103,7 @@ public final class CommandPermissions {
+         DefaultPermissions.registerPermission(PREFIX + "plugins", "Allows the user to view the list of plugins running on this server", PermissionDefault.TRUE, commands);
+         DefaultPermissions.registerPermission(PREFIX + "reload", "Allows the user to reload the server settings", PermissionDefault.OP, commands);
+         DefaultPermissions.registerPermission(PREFIX + "version", "Allows the user to view the version of the server", PermissionDefault.TRUE, commands);
++        DefaultPermissions.registerPermission(PREFIX + "toggledownfall", "Allows the user to toggle rain on/off", PermissionDefault.OP, commands);
+ 
+         commands.recalculatePermissibles();
+ 
+-- 
+2.39.1.windows.1
+
