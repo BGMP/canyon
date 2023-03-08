@@ -1,0 +1,36 @@
+From 4dccca961dc8bb3a9920ed742e67dc5198fb5983 Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Wed, 8 Mar 2023 17:39:25 -0300
+Subject: [PATCH] Ignore SocketException thrown when players disconnect
+
+This is likely caused by legacy. Ignoring it for now.
+---
+ src/main/java/net/minecraft/server/NetworkWriterThread.java | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/main/java/net/minecraft/server/NetworkWriterThread.java b/src/main/java/net/minecraft/server/NetworkWriterThread.java
+index 9f42388f6..58a11779d 100644
+--- a/src/main/java/net/minecraft/server/NetworkWriterThread.java
++++ b/src/main/java/net/minecraft/server/NetworkWriterThread.java
+@@ -1,6 +1,7 @@
+ package net.minecraft.server;
+ 
+ import java.io.IOException;
++import java.net.SocketException;
+ 
+ class NetworkWriterThread extends Thread {
+ 
+@@ -40,7 +41,9 @@ class NetworkWriterThread extends Thread {
+ 
+                 try {
+                     if (NetworkManager.e(this.a) != null) {
+-                        NetworkManager.e(this.a).flush();
++                        try {
++                            NetworkManager.e(this.a).flush();
++                        } catch (SocketException ignored) {}
+                     }
+                 } catch (IOException ioexception) {
+                     if (!NetworkManager.f(this.a)) {
+-- 
+2.39.1.windows.1
+
