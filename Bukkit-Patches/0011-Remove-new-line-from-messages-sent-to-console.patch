@@ -1,0 +1,26 @@
+From 2dc4390ac809ea117699f150c637d7bdf6e527a1 Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Wed, 15 Mar 2023 05:34:48 -0300
+Subject: [PATCH] Remove new line from messages sent to console
+
+ConsoleCommandSender will now use print instead of println.
+---
+ src/main/java/org/bukkit/command/ConsoleCommandSender.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main/java/org/bukkit/command/ConsoleCommandSender.java b/src/main/java/org/bukkit/command/ConsoleCommandSender.java
+index b63e8733..15c70006 100644
+--- a/src/main/java/org/bukkit/command/ConsoleCommandSender.java
++++ b/src/main/java/org/bukkit/command/ConsoleCommandSender.java
+@@ -21,7 +21,7 @@ public class ConsoleCommandSender implements CommandSender {
+     }
+ 
+     public void sendMessage(String message) {
+-        System.out.println(ChatColor.stripColor(message));
++        System.out.print(ChatColor.stripColor(message));
+     }
+ 
+     public boolean isOp() {
+-- 
+2.39.1.windows.1
+
