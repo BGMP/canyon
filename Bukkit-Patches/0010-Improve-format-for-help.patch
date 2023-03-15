@@ -1,0 +1,137 @@
+From e8609171ba45225f6acf745befd74bab11b72c9c Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Wed, 15 Mar 2023 05:00:14 -0300
+Subject: [PATCH] Improve format for /help
+
+- Added simple pagination.
+- Added colours.
+- Added a header to the commands list.
+---
+ .../org/bukkit/command/SimpleCommandMap.java  |  4 +-
+ .../bukkit/command/defaults/HelpCommand.java  | 77 ++++++++++++++-----
+ 2 files changed, 58 insertions(+), 23 deletions(-)
+
+diff --git a/src/main/java/org/bukkit/command/SimpleCommandMap.java b/src/main/java/org/bukkit/command/SimpleCommandMap.java
+index b8293609..dc630eeb 100644
+--- a/src/main/java/org/bukkit/command/SimpleCommandMap.java
++++ b/src/main/java/org/bukkit/command/SimpleCommandMap.java
+@@ -16,7 +16,7 @@ public class SimpleCommandMap implements CommandMap {
+     protected final Map<String, Command> knownCommands = new HashMap<String, Command>();
+     protected final Set<String> aliases = new HashSet<String>();
+     private final Server server;
+-    protected static final Set<VanillaCommand> fallbackCommands = new HashSet<VanillaCommand>();
++    protected static final List<VanillaCommand> fallbackCommands = new ArrayList<>();
+ 
+     static {
+         fallbackCommands.add(new ListCommand());
+@@ -40,7 +40,7 @@ public class SimpleCommandMap implements CommandMap {
+         fallbackCommands.add(new TellCommand());
+         fallbackCommands.add(new MeCommand());
+         fallbackCommands.add(new KillCommand());
+-        fallbackCommands.add(new HelpCommand());
++        fallbackCommands.add(new HelpCommand(fallbackCommands));
+     }
+ 
+     public SimpleCommandMap(final Server server) {
+diff --git a/src/main/java/org/bukkit/command/defaults/HelpCommand.java b/src/main/java/org/bukkit/command/defaults/HelpCommand.java
+index fe400f9f..a00ae084 100644
+--- a/src/main/java/org/bukkit/command/defaults/HelpCommand.java
++++ b/src/main/java/org/bukkit/command/defaults/HelpCommand.java
+@@ -1,38 +1,73 @@
+ package org.bukkit.command.defaults;
+ 
++import org.bukkit.ChatColor;
++import org.bukkit.command.Command;
+ import org.bukkit.command.CommandSender;
+ 
++import java.util.List;
++
+ public class HelpCommand extends VanillaCommand {
+-    public HelpCommand() {
++    private Command[][] paginatedCommands;
++    private int pages;
++    private int cmdsPerPage = 7;
++
++    public HelpCommand(List<VanillaCommand> vanillaCommands) {
+         super("help");
+         this.description = "Shows the help menu";
+-        this.usageMessage = "/help";
++        this.usageMessage = "/help [page]";
+         this.setPermission("bukkit.command.help");
++
++        vanillaCommands.add(this); // /help won't have access to the updated list with itself in it, so we self-add here
++
++        this.pages = vanillaCommands.size() / this.cmdsPerPage + 1;
++        this.paginatedCommands = new Command[this.cmdsPerPage][this.pages];
++
++        int count = 0;
++        for (int i = 0; i < pages; i++) {
++            Command[] cmds = new Command[cmdsPerPage];
++            for (int j = 0; j < cmdsPerPage; j++) {
++                VanillaCommand cmd;
++                try {
++                    cmd = vanillaCommands.get(count);
++                } catch (IndexOutOfBoundsException ignored) {
++                    break; // no more commands
++                }
++
++                cmds[j] = cmd;
++                count++;
++            }
++            paginatedCommands[i] = cmds;
++        }
+     }
+ 
+     @Override
+     public boolean execute(CommandSender sender, String currentAlias, String[] args) {
+         if (!testPermission(sender)) return true;
++        if (args.length > 1) {
++            sender.sendMessage(ChatColor.RED + "Incorrect usage. Correct usage: " + usageMessage);
++            return false;
++        }
++
++        int pageNum = 1;
++        if (args.length != 0) {
++            try {
++                pageNum = Integer.parseInt(args[0]);
++            } catch (NumberFormatException nfe) {
++                sender.sendMessage(ChatColor.RED + args[0] + " is not a valid page number.");
++                return false;
++            }
++        }
++
++        if (pageNum < 1 || pageNum > this.pages) {
++            sender.sendMessage(ChatColor.RED + "Page " + pageNum + " does not exist" + " (Pages: " + this.pages + ").");
++            return false;
++        }
+ 
+-        sender.sendMessage("help  or  ?               shows this message");
+-        sender.sendMessage("kick <player>             removes a player from the server");
+-        sender.sendMessage("ban <player>              bans a player from the server");
+-        sender.sendMessage("pardon <player>           pardons a banned player so that they can connect again");
+-        sender.sendMessage("ban-ip <ip>               bans an IP address from the server");
+-        sender.sendMessage("pardon-ip <ip>            pardons a banned IP address so that they can connect again");
+-        sender.sendMessage("op <player>               turns a player into an op");
+-        sender.sendMessage("deop <player>             removes op status from a player");
+-        sender.sendMessage("tp <player1> <player2>    moves one player to the same location as another player");
+-        sender.sendMessage("give <player> <id> [num]  gives a player a resource");
+-        sender.sendMessage("tell <player> <message>   sends a private message to a player");
+-        sender.sendMessage("stop                      gracefully stops the server");
+-        sender.sendMessage("save-all                  forces a server-wide level save");
+-        sender.sendMessage("save-off                  disables terrain saving (useful for backup scripts)");
+-        sender.sendMessage("save-on                   re-enables terrain saving");
+-        sender.sendMessage("list                      lists all currently connected players");
+-        sender.sendMessage("say <message>             broadcasts a message to all players");
+-        sender.sendMessage("time <add|set> <amount>   adds to or sets the world time (0-24000)");
+-        sender.sendMessage("toggledownfall            toggles rain on/off");
++        sender.sendMessage(String.format(ChatColor.YELLOW + "---------------- Commands (%d/%d) ----------------", pageNum, this.pages));
++        for (Command cmd : this.paginatedCommands[pageNum - 1]) {
++            if (cmd == null) break; // null types mark empty indexes, we've reached the end of the page
++            sender.sendMessage(String.format("%s%s:%s %s", ChatColor.YELLOW, cmd.getUsage(), ChatColor.WHITE, cmd.getDescription()));
++        }
+ 
+         return true;
+     }
+-- 
+2.39.1.windows.1
+
