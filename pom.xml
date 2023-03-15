@@ -10,9 +10,27 @@
     <build>
         <defaultGoal>install</defaultGoal>
         <finalName>${project.artifactId}</finalName>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ftp</artifactId>
+                <version>3.0.0</version>
+            </extension>
+        </extensions>
     </build>
     <modules>
         <module>Canyon-API</module>
         <module>Canyon-Server</module>
     </modules>
+
+    <distributionManagement>
+        <repository>
+            <id>bgm</id>
+            <url>ftp://maven.bgm.cl/</url>
+        </repository>
+        <snapshotRepository>
+            <id>bgm</id>
+            <url>ftp://maven.bgm.cl/</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
