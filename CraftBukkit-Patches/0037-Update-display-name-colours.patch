@@ -1,0 +1,55 @@
+From a17036e7c7e8802605a7936ca0e794d7597fb8a1 Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Thu, 16 Mar 2023 00:05:03 -0300
+Subject: [PATCH] Update display name colours
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- §ADD: Default name colour is now yellow.
+- Operators get a golden flair (*).
+---
+ .../server/ServerConfigurationManager.java          | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/src/main/java/net/minecraft/server/ServerConfigurationManager.java b/src/main/java/net/minecraft/server/ServerConfigurationManager.java
+index 7ab9e2754..56e0dff85 100644
+--- a/src/main/java/net/minecraft/server/ServerConfigurationManager.java
++++ b/src/main/java/net/minecraft/server/ServerConfigurationManager.java
+@@ -13,6 +13,7 @@ import java.util.Set;
+ import java.util.logging.Logger;
+ 
+ // CraftBukkit start
++import org.bukkit.ChatColor;
+ import org.bukkit.Location;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.craftbukkit.CraftWorld;
+@@ -111,6 +112,7 @@ public class ServerConfigurationManager {
+ 
+     public void c(EntityPlayer entityplayer) {
+         this.players.add(entityplayer);
++        Player player = this.cserver.getPlayer(entityplayer);
+         WorldServer worldserver = this.server.getWorldServer(entityplayer.dimension);
+ 
+         //worldserver.chunkProviderServer.getChunkAt((int) entityplayer.locX >> 4, (int) entityplayer.locZ >> 4); // Canyon - remove sync chunk load, done in NetLoginHandler async
+@@ -120,7 +122,16 @@ public class ServerConfigurationManager {
+         }
+ 
+         // CraftBukkit start
+-        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(this.cserver.getPlayer(entityplayer), "\u00A7e" + entityplayer.name + " joined the game.");
++
++        // §ADD: Default name colour is now yellow.
++        //  Operators get a golden flair (*)
++        if (player.isOp()) {
++            player.setDisplayName(ChatColor.GOLD + "*" + ChatColor.YELLOW + player.getDisplayName() + ChatColor.WHITE);
++        } else {
++            player.setDisplayName(ChatColor.YELLOW + player.getDisplayName() + ChatColor.WHITE);
++        }
++
++        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.name + " joined the game.");
+         this.cserver.getPluginManager().callEvent(playerJoinEvent);
+ 
+         String joinMessage = playerJoinEvent.getJoinMessage();
+-- 
+2.39.1.windows.1
+
