@@ -1,0 +1,174 @@
+From 2a15780bfcb93cde15de7c98c085e3d17a4b1771 Mon Sep 17 00:00:00 2001
+From: BGMP <jose@bgm.cl>
+Date: Fri, 17 Mar 2023 23:43:47 -0300
+Subject: [PATCH] Add support for coordinates to teleport command
+
+This patch is a minimal implementation of future Bukkit
+patches, and it only extends support for coordinate-based
+teleportation in a practical level.
+
+No API changes regarding modern teleport causes have
+been made.
+---
+ .../command/defaults/TeleportCommand.java     | 88 ++++++++++++++++---
+ .../command/defaults/VanillaCommand.java      | 13 +++
+ 2 files changed, 90 insertions(+), 11 deletions(-)
+
+diff --git a/src/main/java/org/bukkit/command/defaults/TeleportCommand.java b/src/main/java/org/bukkit/command/defaults/TeleportCommand.java
+index aa2321fb..5787b975 100644
+--- a/src/main/java/org/bukkit/command/defaults/TeleportCommand.java
++++ b/src/main/java/org/bukkit/command/defaults/TeleportCommand.java
+@@ -2,6 +2,7 @@ package org.bukkit.command.defaults;
+ 
+ import org.bukkit.Bukkit;
+ import org.bukkit.ChatColor;
++import org.bukkit.Location;
+ import org.bukkit.command.Command;
+ import org.bukkit.command.CommandSender;
+ import org.bukkit.entity.Player;
+@@ -9,34 +10,99 @@ import org.bukkit.entity.Player;
+ public class TeleportCommand extends VanillaCommand {
+     public TeleportCommand() {
+         super("tp");
+-        this.description = "Teleports the given player to another player";
+-        this.usageMessage = "/tp <player> <target>";
++        this.description = "Teleports the given player (or yourself) to another player or coordinates";
++        this.usageMessage = "/tp [player] <target> and/or <x> <y> <z>";
+         this.setPermission("bukkit.command.teleport");
+     }
+ 
+     @Override
+     public boolean execute(CommandSender sender, String currentAlias, String[] args) {
+         if (!testPermission(sender)) return true;
+-        if (args.length != 2)  {
++        if (args.length < 1 || args.length > 4) {
+             sender.sendMessage(ChatColor.RED + "Usage: " + usageMessage);
+             return false;
+         }
+ 
+-        Player victim = Bukkit.getPlayerExact(args[0]);
+-        Player target = Bukkit.getPlayerExact(args[1]);
++        Player player;
+ 
+-        if (victim == null) {
+-            sender.sendMessage("Can't find user " + args[0] + ". No tp.");
+-        } else if (target == null) {
+-            sender.sendMessage("Can't find user " + args[1] + ". No tp.");
++        if (args.length == 1 || args.length == 3) {
++            if (sender instanceof Player) {
++                player = (Player) sender;
++            } else {
++                sender.sendMessage("Please provide a player!");
++                return true;
++            }
+         } else {
+-            Command.broadcastCommandMessage(sender, "Teleporting " + victim.getName() + " to " + target.getName());
+-            victim.teleport(target);
++            player = Bukkit.getPlayerExact(args[0]);
+         }
+ 
++        if (player == null) {
++            sender.sendMessage("Player not found: " + args[0]);
++            return true;
++        }
++
++        if (args.length < 3) {
++            Player target = Bukkit.getPlayerExact(args[args.length - 1]);
++            if (target == null) {
++                sender.sendMessage("Can't find player " + args[args.length - 1] + ". No tp.");
++                return true;
++            }
++            player.teleport(target);
++            Command.broadcastCommandMessage(sender, "Teleported " + player.getDisplayName() + " to " + target.getDisplayName());
++        } else if (player.getWorld() != null) {
++            Location playerLocation = player.getLocation();
++            double x = getCoordinate(sender, playerLocation.getX(), args[args.length - 3]);
++            double y = getCoordinate(sender, playerLocation.getY(), args[args.length - 2], 0, 0);
++            double z = getCoordinate(sender, playerLocation.getZ(), args[args.length - 1]);
++
++            if (x == MIN_COORD_MINUS_ONE || y == MIN_COORD_MINUS_ONE || z == MIN_COORD_MINUS_ONE) {
++                sender.sendMessage("Please provide a valid location!");
++                return true;
++            }
++
++            playerLocation.setX(x);
++            playerLocation.setY(y);
++            playerLocation.setZ(z);
++
++            player.teleport(playerLocation);
++            Command.broadcastCommandMessage(sender, String.format("Teleported %s to %.2f, %.2f, %.2f", player.getDisplayName(), x, y, z));
++        }
+         return true;
+     }
+ 
++    private double getCoordinate(CommandSender sender, double current, String input) {
++        return getCoordinate(sender, current, input, MIN_COORD, MAX_COORD);
++    }
++
++    private double getCoordinate(CommandSender sender, double current, String input, int min, int max) {
++        boolean relative = input.startsWith("~");
++        double result = relative ? current : 0;
++
++        if (!relative || input.length() > 1) {
++            boolean exact = input.contains(".");
++            if (relative) input = input.substring(1);
++
++            double testResult = getDouble(sender, input);
++            if (testResult == MIN_COORD_MINUS_ONE) {
++                return MIN_COORD_MINUS_ONE;
++            }
++            result += testResult;
++
++            if (!exact && !relative) result += 0.5f;
++        }
++        if (min != 0 || max != 0) {
++            if (result < min) {
++                result = MIN_COORD_MINUS_ONE;
++            }
++
++            if (result > max) {
++                result = MIN_COORD_MINUS_ONE;
++            }
++        }
++
++        return result;
++    }
++
+     @Override
+     public boolean matches(String input) {
+         return input.startsWith("tp ");
+diff --git a/src/main/java/org/bukkit/command/defaults/VanillaCommand.java b/src/main/java/org/bukkit/command/defaults/VanillaCommand.java
+index cfb0769a..7256a406 100644
+--- a/src/main/java/org/bukkit/command/defaults/VanillaCommand.java
++++ b/src/main/java/org/bukkit/command/defaults/VanillaCommand.java
+@@ -2,8 +2,13 @@ package org.bukkit.command.defaults;
+ 
+ import java.util.List;
+ import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
+ 
+ public abstract class VanillaCommand extends Command {
++    static final int MAX_COORD = 30000000;
++    static final int MIN_COORD_MINUS_ONE = -30000001;
++    static final int MIN_COORD = -30000000;
++
+     protected VanillaCommand(String name) {
+         super(name);
+     }
+@@ -12,5 +17,13 @@ public abstract class VanillaCommand extends Command {
+         super(name, description, usageMessage, aliases);
+     }
+ 
++    public static double getDouble(CommandSender sender, String input) {
++        try {
++            return Double.parseDouble(input);
++        } catch (NumberFormatException ex) {
++            return MIN_COORD_MINUS_ONE;
++        }
++    }
++
+     public abstract boolean matches(String input);
+ }
+-- 
+2.39.1.windows.1
+
